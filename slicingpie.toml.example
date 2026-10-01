@@ -1,0 +1,44 @@
+# Copia este archivo a slicingpie.toml o slicingpie.local.toml y rellena los valores.
+# El token también puede ir en la variable de entorno GITHUB_TOKEN (recomendado).
+
+mode = "github"
+
+[github]
+# Token clásico: scopes `repo` y `project` (o `read:project`).
+# Token fine-grained: Issues Read + Projects Read sobre el repo/org del Project.
+token = ""
+# Usuario u organización dueña del Project (no necesariamente del repo).
+owner = "mi-org"
+# auto | organization | user
+owner_type = "auto"
+project_number = 1
+# API GraphQL (cámbiala solo si usas GitHub Enterprise).
+api_url = "https://api.github.com/graphql"
+
+[fields]
+# Nombre exacto (sin importar mayúsculas) del campo de estado del Project.
+status = "Status"
+# Valores que cuentan como terminado.
+done = ["Done", "Listo", "Completado"]
+# Campo numérico (o texto tipo "8h") con el estimado. Se interpreta en horas
+# salvo que hours_per_estimate_unit sea distinto de 1.
+estimate = "Estimate"
+
+[slicing_pie]
+# Modelo Slicing Pie (Mike Moyer): rebanadas = horas × tarifa de mercado × 2
+# para tiempo no pagado. Por ahora solo se cuentan horas de tickets Done.
+time_multiplier = 2.0
+default_hourly_rate = 50.0
+# Si el estimado está en story points, pon aquí las horas por punto (p. ej. 4).
+hours_per_estimate_unit = 1.0
+# Varios asignados: reparte las horas a partes iguales. Si es false, cuenta
+# solo al primer asignado.
+split_among_assignees = true
+
+[rates]
+# login de GitHub = tarifa horaria de mercado
+# ana = 75
+# carlos = 50
+
+[display]
+currency_symbol = "$"
