@@ -21,7 +21,14 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "cli.help.verbose": "Lista cada ticket contado por persona",
         "cli.help.show_no_estimate": "Lista los tickets Done sin estimado",
         "cli.help.show_unassigned": "Lista los tickets Done sin asignado",
+        "cli.help.show_skipped": (
+            "Lista todos los tickets Done omitidos "
+            "(sin estimado, sin asignado, monto/horas en cero)"
+        ),
         "cli.help.json": "Imprime JSON en lugar de la tabla",
+        "cli.help.detail": (
+            "Lista cada gasto por persona, organizado por mes y fecha"
+        ),
         "cli.help.sync_rates": (
             "Agrega cada usuario del repo como un bloque [[users]], "
             "con la tarifa por defecto. No pisa rate, seniority ni name."
@@ -45,28 +52,59 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "cli.sync_rates.added_none": "  nuevas: ninguna",
         "cli.sync_rates.kept": "  sin cambios: {logins}",
         "display.counted": "contados: {count}",
+        "display.counted_expenses": "gastos: {count}",
         "display.skipped": "omitidos: {count}",
         "display.subtitle_hours": "  -  horas de trabajo",
         "display.formula": (
             "\nRebanadas = horas x tarifa x seniority x {multiplier} "
             "(tiempo no pagado)"
         ),
+        "display.expense_hint": (
+            "\nGastos: label '{label}' -> estimado en {currency} "
+            "x {multiplier} (cash)"
+        ),
         "display.empty": (
             "\n[yellow]No hay tickets Done con asignado y estimado "
             "para armar el pie.[/yellow]"
         ),
-        "display.table.title": "Rebanadas por persona",
+        "display.table.title": "Rebanadas por horas de trabajo",
+        "display.table.caption": (
+            "Rebanadas = horas x tarifa x seniority x {multiplier}  ->  % pie"
+        ),
+        "display.expenses.title": "Gastos ({currency}, label {label})",
+        "display.expenses.caption": (
+            "Rebanadas = monto x {multiplier}  ->  % pie de gastos"
+        ),
+        "display.expenses.detail_title": "Detalle de gastos por fecha",
+        "display.expenses.detail_caption": (
+            "Monto en moneda; rebanadas en resumen = monto x {multiplier}"
+        ),
+        "display.summary.title": "Resumen general",
+        "display.summary.caption": (
+            "Total = trabajo (x{time_multiplier}) + gastos (x{cash_multiplier})  "
+            "->  % pie"
+        ),
         "display.col.person": "Persona",
         "display.col.hours": "Horas",
         "display.col.rate": "Tarifa",
         "display.col.seniority": "Seniority",
         "display.col.slices": "Rebanadas",
+        "display.col.work_slices": "Trabajo",
+        "display.col.amount": "Monto",
+        "display.col.expenses": "Gastos",
+        "display.col.total": "Total",
         "display.col.percent": "% pie",
+        "display.col.month": "Mes",
+        "display.col.date": "Fecha",
+        "display.col.no_date": "(sin fecha)",
         "display.default_rate_hint": (
             "[dim]* tarifa por defecto ({rate}/h). "
             "Anadela en [[users]] o corre slicingpie --sync-rates.[/dim]"
         ),
-        "display.distribution": "Distribucion",
+        "display.distribution": "Distribucion final",
+        "display.distribution.caption": (
+            "% pie = rebanadas de la persona / total del resumen"
+        ),
         "display.col.bar": "Barra",
         "display.tickets_title": "Tickets contados por persona",
         "display.skipped_title": "Tickets Done omitidos",
@@ -74,6 +112,28 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "display.skip.no_estimate": "sin estimado",
         "display.skip.no_assignee": "sin asignado",
         "display.skip.zero_hours": "con 0 horas",
+        "config.empty_expense_label": "expenses.label no puede estar vacio.",
+        "config.empty_expense_currency": "expenses.currency no puede estar vacio.",
+        "config.bad_cash_multiplier": (
+            "expenses.cash_multiplier debe ser un numero."
+        ),
+        "config.cash_multiplier_range": (
+            "expenses.cash_multiplier debe ser > 0."
+        ),
+        "config.missing_model_file": (
+            "No encuentro el modelo Mike Moyer: {path}\n"
+            "Debe existir mike-moyer-model.toml en el directorio de trabajo."
+        ),
+        "config.bad_model_file": (
+            "mike-moyer-model.toml ({path}) debe definir "
+            "time_multiplier y cash_multiplier."
+        ),
+        "config.bad_model_numbers": (
+            "time_multiplier y cash_multiplier en {path} deben ser numeros."
+        ),
+        "config.model_multiplier_range": (
+            "time_multiplier y cash_multiplier del modelo deben ser > 0."
+        ),
         "config.missing_file": (
             "No encuentro el archivo de configuracion: {path}\n"
             "Copia slicingpie.toml.example a slicingpie.toml y rellena los valores."
@@ -161,6 +221,9 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "demo.ticket.zero": "Estimado en cero",
         "demo.ticket.wip": "Aun en progreso",
         "demo.ticket.backlog": "Backlog",
+        "demo.ticket.aws": "Factura AWS",
+        "demo.ticket.domain": "Dominio .com",
+        "demo.ticket.ads": "Ads de lanzamiento",
     }
 }
 

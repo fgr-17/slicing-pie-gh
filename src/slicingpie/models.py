@@ -12,6 +12,8 @@ class Ticket:
     status: str | None
     estimate_raw: float | str | None
     item_type: str
+    labels: tuple[str, ...] = ()
+    occurred_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,36 @@ class PersonSlice:
 
 
 @dataclass(frozen=True)
+class ExpenseItem:
+    title: str
+    number: int | None
+    url: str | None
+    amount: float
+    occurred_at: str | None
+    assignees: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PersonExpenses:
+    login: str
+    name: str
+    amount: float
+    slices: float
+    percent: float
+    items: tuple[ExpenseItem, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class PersonSummary:
+    login: str
+    name: str
+    work_slices: float
+    expenses: float
+    total: float
+    percent: float
+
+
+@dataclass(frozen=True)
 class PieReport:
     project_title: str
     project_url: str | None
@@ -51,3 +83,12 @@ class PieReport:
     skipped_zero_hours: tuple[Ticket, ...]
     time_multiplier: float
     default_hourly_rate: float
+    expenses: tuple[PersonExpenses, ...] = ()
+    total_expenses: float = 0.0
+    total_expense_slices: float = 0.0
+    counted_expenses: int = 0
+    expense_currency: str = "USD"
+    expense_label: str = ""
+    cash_multiplier: float = 4.0
+    summary: tuple[PersonSummary, ...] = ()
+    total_contribution: float = 0.0

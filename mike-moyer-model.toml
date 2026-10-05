@@ -1,0 +1,6 @@
+# Mike Moyer Slicing Pie model constants.
+# Canonical defaults loaded by the app. Optional overrides go in
+# slicingpie.toml / slicingpie.local.toml under [slicing_pie] and [expenses].
+
+time_multiplier = 2.0
+cash_multiplier = 4.0

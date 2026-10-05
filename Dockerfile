@@ -12,7 +12,7 @@ RUN uv sync --frozen --no-install-project --all-groups
 
 COPY src ./src
 COPY tests ./tests
-COPY slicingpie.toml slicingpie.toml.example sast-thresholds.txt ./
+COPY slicingpie.toml slicingpie.toml.example sast-thresholds.txt mike-moyer-model.toml ./
 RUN uv sync --frozen --all-groups
 
 ENTRYPOINT ["slicingpie"]

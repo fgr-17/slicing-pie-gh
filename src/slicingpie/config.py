@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 import os
 import tomllib
@@ -8,6 +9,7 @@ import tomllib
 from slicingpie.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, set_language, t
 
 DEFAULT_CONFIG_NAMES = ("slicingpie.local.toml", "slicingpie.toml")
+MODEL_FILE_NAME = "mike-moyer-model.toml"
 
 
 class ConfigError(ValueError):
@@ -58,12 +60,20 @@ class DisplayConfig:
 
 
 @dataclass(frozen=True)
+class ExpensesConfig:
+    label: str
+    currency: str
+    cash_multiplier: float
+
+
+@dataclass(frozen=True)
 class AppConfig:
     mode: str
     github: GitHubConfig
     fields: FieldsConfig
     slicing_pie: SlicingPieConfig
     display: DisplayConfig
+    expenses: ExpensesConfig
     path: Path = field(compare=False)
 
 
@@ -76,6 +86,51 @@ def find_config_path(explicit: Path | None = None) -> Path:
         if candidate.is_file():
             return candidate
     return cwd / "slicingpie.toml"
+
+
+def find_model_path() -> Path:
+    """Resolve mike-moyer-model.toml (cwd first, then package/repo root)."""
+    candidates = [
+        Path.cwd() / MODEL_FILE_NAME,
+        Path(__file__).resolve().parents[2] / MODEL_FILE_NAME,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+@dataclass(frozen=True)
+class ModelDefaults:
+    time_multiplier: float
+    cash_multiplier: float
+
+
+@lru_cache(maxsize=1)
+def load_model_defaults() -> ModelDefaults:
+    path = find_model_path()
+    if not path.is_file():
+        raise ConfigError(t("config.missing_model_file", path=path))
+    with path.open("rb") as handle:
+        try:
+            raw = tomllib.load(handle)
+        except tomllib.TOMLDecodeError as exc:
+            raise ConfigError(
+                t("config.invalid_toml", path=path, detail=exc)
+            ) from exc
+    try:
+        time_multiplier = float(raw["time_multiplier"])
+        cash_multiplier = float(raw["cash_multiplier"])
+    except KeyError as exc:
+        raise ConfigError(t("config.bad_model_file", path=path)) from exc
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(t("config.bad_model_numbers", path=path)) from exc
+    if time_multiplier <= 0 or cash_multiplier <= 0:
+        raise ConfigError(t("config.model_multiplier_range"))
+    return ModelDefaults(
+        time_multiplier=time_multiplier,
+        cash_multiplier=cash_multiplier,
+    )
 
 
 def load_config(path: Path | None = None) -> AppConfig:
@@ -103,6 +158,7 @@ def parse_config(raw: dict, path: Path) -> AppConfig:
     fields = _parse_fields(raw.get("fields") or {})
     pie = _parse_slicing_pie(raw.get("slicing_pie") or {}, raw.get("rates") or {}, raw.get("users"))
     display = _parse_display(raw.get("display") or {})
+    expenses = _parse_expenses(raw.get("expenses") or {})
     set_language(display.language)
 
     return AppConfig(
@@ -111,6 +167,7 @@ def parse_config(raw: dict, path: Path) -> AppConfig:
         fields=fields,
         slicing_pie=pie,
         display=display,
+        expenses=expenses,
         path=path,
     )
 
@@ -161,8 +218,11 @@ def _parse_fields(fields_raw: dict) -> FieldsConfig:
 def _parse_slicing_pie(
     pie_raw: dict, rates_raw: object, users_raw: object
 ) -> SlicingPieConfig:
+    model = load_model_defaults()
     try:
-        time_multiplier = float(pie_raw.get("time_multiplier", 2.0))
+        time_multiplier = float(
+            pie_raw.get("time_multiplier", model.time_multiplier)
+        )
         default_rate = float(pie_raw.get("default_hourly_rate", 50.0))
         hours_per_unit = float(pie_raw.get("hours_per_estimate_unit", 1.0))
     except (TypeError, ValueError) as exc:
@@ -196,6 +256,27 @@ def _parse_display(display_raw: dict) -> DisplayConfig:
     return DisplayConfig(
         currency_symbol=str(display_raw.get("currency_symbol") or "$"),
         language=language,
+    )
+
+
+def _parse_expenses(expenses_raw: dict) -> ExpensesConfig:
+    model = load_model_defaults()
+    label = str(expenses_raw.get("label") or "[expensa]").strip()
+    if not label:
+        raise ConfigError(t("config.empty_expense_label"))
+    currency = str(expenses_raw.get("currency") or "USD").strip().upper()
+    if not currency:
+        raise ConfigError(t("config.empty_expense_currency"))
+    try:
+        cash_multiplier = float(
+            expenses_raw.get("cash_multiplier", model.cash_multiplier)
+        )
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(t("config.bad_cash_multiplier")) from exc
+    if cash_multiplier <= 0:
+        raise ConfigError(t("config.cash_multiplier_range"))
+    return ExpensesConfig(
+        label=label, currency=currency, cash_multiplier=cash_multiplier
     )
 
 

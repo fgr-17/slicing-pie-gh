@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from contextlib import contextmanager
 from collections.abc import Iterator
 
@@ -11,9 +12,12 @@ from rich.table import Table
 from rich.text import Text
 
 from slicingpie.i18n import t
-from slicingpie.models import PieReport, Ticket
+from slicingpie.models import ExpenseItem, PersonExpenses, PieReport, Ticket
 
 BAR_WIDTH = 28
+# Full / light block for the final distribution chart (terminal bar).
+BAR_FILLED = "\u2588"
+BAR_EMPTY = "\u2591"
 
 
 @contextmanager
@@ -64,12 +68,18 @@ def render_report(
     currency_symbol: str,
     show_no_estimate: bool = False,
     show_unassigned: bool = False,
+    show_skipped: bool = False,
+    detail: bool = False,
 ) -> None:
     console = Console()
     subtitle_parts = [
         f"Done: {report.done_count}",
         t("display.counted", count=report.counted_count),
     ]
+    if report.counted_expenses:
+        subtitle_parts.append(
+            t("display.counted_expenses", count=report.counted_expenses)
+        )
     skipped = (
         len(report.skipped_no_estimate)
         + len(report.skipped_no_assignee)
@@ -86,25 +96,66 @@ def render_report(
     if report.project_url:
         body.append(f"\n{report.project_url}", style="dim")
     body.append("\n" + "  -  ".join(subtitle_parts), style="dim")
-    body.append(
-        t("display.formula", multiplier=format_hours(report.time_multiplier)),
-        style="dim",
-    )
     console.print(Panel(body, title=title, border_style="magenta"))
 
-    if not report.people:
+    if not report.people and not report.expenses:
         console.print(t("display.empty"))
         _print_skipped(
             console,
             report,
             show_no_estimate=show_no_estimate,
             show_unassigned=show_unassigned,
+            show_skipped=show_skipped,
         )
         return
 
+    if report.people:
+        _print_work_table(console, report, currency_symbol)
+        if any(person.used_default_rate for person in report.people):
+            console.print(
+                t(
+                    "display.default_rate_hint",
+                    rate=format_amount(report.default_hourly_rate, currency_symbol),
+                )
+            )
+        if verbose:
+            _print_tickets(console, report)
+
+    if report.expenses:
+        console.print()
+        _print_expenses_table(console, report, currency_symbol)
+
+    if report.summary:
+        console.print()
+        _print_summary_table(console, report, currency_symbol)
+
+    if detail and report.expenses:
+        console.print()
+        _print_expense_detail(console, report, currency_symbol)
+
+    if report.summary:
+        console.print()
+        _print_distribution(console, report)
+
+    _print_skipped(
+        console,
+        report,
+        show_no_estimate=show_no_estimate,
+        show_unassigned=show_unassigned,
+        show_skipped=show_skipped,
+    )
+
+
+def _print_work_table(
+    console: Console, report: PieReport, currency_symbol: str
+) -> None:
     table = Table(
-        title=t("display.table.title"),
-        title_style="bold",
+        title=Text(t("display.table.title"), style="bold"),
+        caption=t(
+            "display.table.caption",
+            multiplier=format_hours(report.time_multiplier),
+        ),
+        caption_style="dim",
         show_lines=False,
         pad_edge=True,
     )
@@ -140,17 +191,14 @@ def render_report(
     )
     console.print(table)
 
-    if any(person.used_default_rate for person in report.people):
-        console.print(
-            t(
-                "display.default_rate_hint",
-                rate=format_amount(report.default_hourly_rate, currency_symbol),
-            )
-        )
 
-    console.print()
+def _print_distribution(console: Console, report: PieReport) -> None:
+    if not report.summary:
+        return
     dist = Table(
-        title=t("display.distribution"),
+        title=Text(t("display.distribution"), style="bold"),
+        caption=t("display.distribution.caption"),
+        caption_style="dim",
         show_header=False,
         box=None,
         padding=(0, 1),
@@ -158,31 +206,157 @@ def render_report(
     dist.add_column(t("display.col.person"), style="cyan", no_wrap=True)
     dist.add_column(t("display.col.bar"))
     dist.add_column("%", justify="right")
-    for person in report.people:
-        filled = int(round((person.percent / 100.0) * BAR_WIDTH))
-        filled = min(BAR_WIDTH, max(filled, 1 if person.percent > 0 else 0))
-        bar = "#" * filled + "-" * (BAR_WIDTH - filled)
+    for row in report.summary:
+        filled = int(round((row.percent / 100.0) * BAR_WIDTH))
+        filled = min(BAR_WIDTH, max(filled, 1 if row.percent > 0 else 0))
+        bar = BAR_FILLED * filled + BAR_EMPTY * (BAR_WIDTH - filled)
         dist.add_row(
-            _person_label(person),
+            _person_label(row),
             f"[magenta]{bar}[/magenta]",
-            format_percent(person.percent),
+            format_percent(row.percent),
         )
     console.print(dist)
 
-    if verbose:
-        _print_tickets(console, report)
 
-    _print_skipped(
-        console,
-        report,
-        show_no_estimate=show_no_estimate,
-        show_unassigned=show_unassigned,
+def _print_expenses_table(
+    console: Console, report: PieReport, currency_symbol: str
+) -> None:
+    table = Table(
+        title=Text(
+            t(
+                "display.expenses.title",
+                currency=report.expense_currency,
+                label=report.expense_label,
+            ),
+            style="bold",
+        ),
+        caption=t(
+            "display.expenses.caption",
+            multiplier=format_hours(report.cash_multiplier),
+        ),
+        caption_style="dim",
+        show_lines=False,
+        pad_edge=True,
     )
+    table.add_column(t("display.col.person"), style="cyan", no_wrap=True)
+    table.add_column(t("display.col.amount"), justify="right")
+    table.add_column(t("display.col.slices"), justify="right")
+    table.add_column(t("display.col.percent"), justify="right", style="bold")
+    for row in report.expenses:
+        table.add_row(
+            _person_label(row),
+            format_amount(row.amount, currency_symbol),
+            format_amount(row.slices, currency_symbol),
+            format_percent(row.percent),
+        )
+    table.add_section()
+    table.add_row(
+        "total",
+        format_amount(report.total_expenses, currency_symbol),
+        format_amount(report.total_expense_slices, currency_symbol),
+        "100,0%",
+        style="bold",
+    )
+    console.print(table)
+
+
+def _print_summary_table(
+    console: Console, report: PieReport, currency_symbol: str
+) -> None:
+    table = Table(
+        title=Text(t("display.summary.title"), style="bold"),
+        caption=t(
+            "display.summary.caption",
+            time_multiplier=format_hours(report.time_multiplier),
+            cash_multiplier=format_hours(report.cash_multiplier),
+        ),
+        caption_style="dim",
+        show_lines=False,
+        pad_edge=True,
+    )
+    table.add_column(t("display.col.person"), style="cyan", no_wrap=True)
+    table.add_column(t("display.col.work_slices"), justify="right")
+    table.add_column(t("display.col.expenses"), justify="right")
+    table.add_column(t("display.col.total"), justify="right")
+    table.add_column(t("display.col.percent"), justify="right", style="bold")
+    for row in report.summary:
+        table.add_row(
+            _person_label(row),
+            format_amount(row.work_slices, currency_symbol),
+            format_amount(row.expenses, currency_symbol),
+            format_amount(row.total, currency_symbol),
+            format_percent(row.percent),
+        )
+    table.add_section()
+    table.add_row(
+        "total",
+        format_amount(report.total_slices, currency_symbol),
+        format_amount(report.total_expense_slices, currency_symbol),
+        format_amount(report.total_contribution, currency_symbol),
+        "100,0%",
+        style="bold",
+    )
+    console.print(table)
+
+
+def _print_expense_detail(
+    console: Console, report: PieReport, currency_symbol: str
+) -> None:
+    table = Table(
+        title=Text(t("display.expenses.detail_title"), style="bold"),
+        caption=t(
+            "display.expenses.detail_caption",
+            multiplier=format_hours(report.cash_multiplier),
+        ),
+        caption_style="dim",
+        show_lines=False,
+        pad_edge=True,
+    )
+    table.add_column(t("display.col.person"), style="cyan", no_wrap=True)
+    table.add_column(t("display.col.month"), no_wrap=True)
+    table.add_column(t("display.col.date"), no_wrap=True)
+    table.add_column("Ticket")
+    table.add_column(t("display.col.expenses"), justify="right")
+
+    for person in report.expenses:
+        rows = _detail_rows(person)
+        for index, (month, date, item) in enumerate(rows):
+            table.add_row(
+                _person_label(person) if index == 0 else "",
+                month,
+                date,
+                ticket_label(item),
+                format_amount(item.amount, currency_symbol),
+            )
+    console.print(table)
+
+
+def _detail_rows(
+    person: PersonExpenses,
+) -> list[tuple[str, str, ExpenseItem]]:
+    by_month: dict[str, list[ExpenseItem]] = defaultdict(list)
+    for item in person.items:
+        month = (item.occurred_at or "")[:7] or t("display.col.no_date")
+        by_month[month].append(item)
+
+    rows: list[tuple[str, str, ExpenseItem]] = []
+    for month in sorted(by_month):
+        items = sorted(
+            by_month[month],
+            key=lambda item: (item.occurred_at or "", item.number or 0, item.title),
+        )
+        for item in items:
+            date = item.occurred_at or t("display.col.no_date")
+            rows.append((month, date, item))
+    return rows
 
 
 def _print_tickets(console: Console, report: PieReport) -> None:
     console.print()
-    table = Table(title=t("display.tickets_title"), show_lines=False)
+    table = Table(
+        title=Text(t("display.tickets_title"), style="bold"),
+        show_lines=False,
+    )
     table.add_column(t("display.col.person"), style="cyan")
     table.add_column("Ticket")
     table.add_column(t("display.col.hours"), justify="right")
@@ -202,18 +376,25 @@ def _print_skipped(
     *,
     show_no_estimate: bool,
     show_unassigned: bool,
+    show_skipped: bool,
 ) -> None:
+    if not (show_skipped or show_no_estimate or show_unassigned):
+        return
     groups = []
-    if show_no_estimate:
+    if show_skipped or show_no_estimate:
         groups.append((t("display.skip.no_estimate"), report.skipped_no_estimate))
-    if show_unassigned:
+    if show_skipped or show_unassigned:
         groups.append((t("display.skip.no_assignee"), report.skipped_no_assignee))
-    groups.append((t("display.skip.zero_hours"), report.skipped_zero_hours))
+    if show_skipped:
+        groups.append((t("display.skip.zero_hours"), report.skipped_zero_hours))
     pending = [(label, tickets) for label, tickets in groups if tickets]
     if not pending:
         return
     console.print()
-    table = Table(title=t("display.skipped_title"), show_lines=False)
+    table = Table(
+        title=Text(t("display.skipped_title"), style="bold"),
+        show_lines=False,
+    )
     table.add_column(t("display.col.reason"), style="yellow")
     table.add_column("Ticket")
     for label, tickets in pending:
@@ -227,14 +408,25 @@ def report_to_json(report: PieReport) -> str:
         "project": {"title": report.project_title, "url": report.project_url},
         "formula": {
             "slices": "hours * hourly_rate * seniority * time_multiplier",
+            "expense_slices": "amount * cash_multiplier",
             "time_multiplier": report.time_multiplier,
+            "cash_multiplier": report.cash_multiplier,
             "default_hourly_rate": report.default_hourly_rate,
+        },
+        "expenses_config": {
+            "label": report.expense_label,
+            "currency": report.expense_currency,
+            "cash_multiplier": report.cash_multiplier,
         },
         "totals": {
             "hours": report.total_hours,
             "slices": report.total_slices,
+            "expenses": report.total_expenses,
+            "expense_slices": report.total_expense_slices,
+            "contribution": report.total_contribution,
             "done": report.done_count,
             "counted": report.counted_count,
+            "counted_expenses": report.counted_expenses,
         },
         "people": [
             {
@@ -258,6 +450,38 @@ def report_to_json(report: PieReport) -> str:
                 ],
             }
             for person in report.people
+        ],
+        "expenses": [
+            {
+                "login": row.login,
+                "name": row.name,
+                "amount": row.amount,
+                "slices": row.slices,
+                "percent": row.percent,
+                "items": [
+                    {
+                        "title": item.title,
+                        "number": item.number,
+                        "url": item.url,
+                        "amount": item.amount,
+                        "occurred_at": item.occurred_at,
+                        "assignees": list(item.assignees),
+                    }
+                    for item in row.items
+                ],
+            }
+            for row in report.expenses
+        ],
+        "summary": [
+            {
+                "login": row.login,
+                "name": row.name,
+                "work_slices": row.work_slices,
+                "expenses": row.expenses,
+                "total": row.total,
+                "percent": row.percent,
+            }
+            for row in report.summary
         ],
         "skipped": {
             "no_estimate": [_ticket_json(ticket) for ticket in report.skipped_no_estimate],
@@ -283,4 +507,6 @@ def _ticket_json(ticket: Ticket) -> dict:
         "assignees": list(ticket.assignees),
         "status": ticket.status,
         "estimate": ticket.estimate_raw,
+        "labels": list(ticket.labels),
+        "occurred_at": ticket.occurred_at,
     }

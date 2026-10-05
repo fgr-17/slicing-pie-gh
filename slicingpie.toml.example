@@ -1,5 +1,6 @@
 # Copy this file to slicingpie.toml or slicingpie.local.toml and fill in values.
 # The token can also come from the GITHUB_TOKEN environment variable (preferred).
+# Model multipliers live only in mike-moyer-model.toml (optional overrides below).
 
 mode = "github"
 
@@ -25,9 +26,7 @@ done = ["Done", "Listo", "Completado"]
 estimate = "Estimate"
 
 [slicing_pie]
-# Slicing Pie model (Mike Moyer): slices = hours x market rate x 2
-# for unpaid time. Only Done ticket hours are counted for now.
-time_multiplier = 2.0
+# Optional: time_multiplier = 2.0  (default from mike-moyer-model.toml)
 default_hourly_rate = 50.0
 # If the estimate is in story points, set hours per point here (e.g. 4).
 hours_per_estimate_unit = 1.0
@@ -53,3 +52,8 @@ seniority = 1.2
 currency_symbol = "$"
 # CLI language. Only "es" is available for now.
 language = "es"
+
+[expenses]
+label = "[expensa]"
+currency = "USD"
+# Optional: cash_multiplier = 4.0  (default from mike-moyer-model.toml)
