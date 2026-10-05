@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import re
 
-from slicingpie.config import AppConfig
+from slicingpie.config import AppConfig, PersonConfig
 from slicingpie.models import PersonSlice, PieReport, Ticket, TicketShare
 
 
@@ -13,7 +14,7 @@ _ESTIMATE = re.compile(
 
 
 def parse_estimate_hours(value: object, hours_per_unit: float) -> float | None:
-    """Convierte el campo estimado a horas de trabajo."""
+    """Convert the estimate field into work hours."""
     if value is None:
         return None
     if isinstance(value, bool):
@@ -36,100 +37,77 @@ def parse_estimate_hours(value: object, hours_per_unit: float) -> float | None:
     return amount * hours_per_unit
 
 
-def rate_for(login: str, config: AppConfig) -> tuple[float, bool]:
-    rates = config.slicing_pie.rates
-    key = login.lower()
-    if key in rates:
-        return rates[key], False
-    return config.slicing_pie.default_hourly_rate, True
+def user_for(login: str, config: AppConfig) -> tuple[PersonConfig, bool]:
+    found = config.slicing_pie.users.get(login.lower())
+    if found is not None:
+        return found, False
+    return (
+        PersonConfig(
+            login=login,
+            name="",
+            rate=config.slicing_pie.default_hourly_rate,
+            seniority=1.0,
+        ),
+        True,
+    )
 
 
-def build_pie(tickets: list[Ticket], config: AppConfig, *, project_title: str, project_url: str | None) -> PieReport:
+def build_pie(
+    tickets: list[Ticket],
+    config: AppConfig,
+    *,
+    project_title: str,
+    project_url: str | None,
+) -> PieReport:
     pie_cfg = config.slicing_pie
     done_names = {value.casefold() for value in config.fields.done}
-
-    skipped_no_estimate: list[Ticket] = []
-    skipped_no_assignee: list[Ticket] = []
-    skipped_zero_hours: list[Ticket] = []
-
-    hours_by_person: dict[str, float] = {}
-    tickets_by_person: dict[str, list[TicketShare]] = {}
-    display_login: dict[str, str] = {}
-
     done_tickets = [
         ticket
         for ticket in tickets
         if ticket.status is not None and ticket.status.casefold() in done_names
     ]
 
-    for ticket in done_tickets:
-        hours = parse_estimate_hours(ticket.estimate_raw, pie_cfg.hours_per_estimate_unit)
-        if hours is None:
-            skipped_no_estimate.append(ticket)
-            continue
-        if hours == 0:
-            skipped_zero_hours.append(ticket)
-            continue
+    hours_by_person: dict[str, float] = {}
+    tickets_by_person: dict[str, list[TicketShare]] = {}
+    display_login: dict[str, str] = {}
+    skipped_no_estimate: list[Ticket] = []
+    skipped_no_assignee: list[Ticket] = []
+    skipped_zero_hours: list[Ticket] = []
+
+    def recipients_of(ticket: Ticket) -> tuple[str, ...]:
         if not ticket.assignees:
-            skipped_no_assignee.append(ticket)
-            continue
+            return ()
+        if pie_cfg.split_among_assignees:
+            return ticket.assignees
+        return ticket.assignees[:1]
 
-        recipients = (
-            ticket.assignees
-            if pie_cfg.split_among_assignees
-            else ticket.assignees[:1]
-        )
-        hours_each = hours / len(recipients)
-        share = TicketShare(
-            title=ticket.title,
-            number=ticket.number,
-            url=ticket.url,
-            hours=hours_each,
-            assignees=ticket.assignees,
-        )
-        for login in recipients:
-            key = login.lower()
-            display_login.setdefault(key, login)
-            hours_by_person[key] = hours_by_person.get(key, 0.0) + hours_each
-            tickets_by_person.setdefault(key, []).append(share)
+    def ensure_person(login: str) -> str:
+        key = login.lower()
+        display_login.setdefault(key, login)
+        hours_by_person.setdefault(key, 0.0)
+        tickets_by_person.setdefault(key, [])
+        return key
 
-    people: list[PersonSlice] = []
-    total_slices = 0.0
-    total_hours = 0.0
-    for key, hours in hours_by_person.items():
-        login = display_login[key]
-        hourly_rate, used_default = rate_for(login, config)
-        slices = hours * hourly_rate * pie_cfg.time_multiplier
-        total_slices += slices
-        total_hours += hours
-        people.append(
-            PersonSlice(
-                login=login,
-                hours=hours,
-                hourly_rate=hourly_rate,
-                multiplier=pie_cfg.time_multiplier,
-                slices=slices,
-                percent=0.0,
-                used_default_rate=used_default,
-                tickets=tuple(tickets_by_person.get(key, ())),
-            )
+    for ticket in done_tickets:
+        _accumulate_ticket(
+            ticket,
+            pie_cfg.hours_per_estimate_unit,
+            recipients_of,
+            ensure_person,
+            hours_by_person,
+            tickets_by_person,
+            skipped_no_estimate,
+            skipped_no_assignee,
+            skipped_zero_hours,
         )
 
-    people.sort(key=lambda person: (-person.slices, person.login.lower()))
-    if total_slices > 0:
-        people = [
-            PersonSlice(
-                login=person.login,
-                hours=person.hours,
-                hourly_rate=person.hourly_rate,
-                multiplier=person.multiplier,
-                slices=person.slices,
-                percent=(person.slices / total_slices) * 100.0,
-                used_default_rate=person.used_default_rate,
-                tickets=person.tickets,
-            )
-            for person in people
-        ]
+    for user in pie_cfg.users.values():
+        if user.effective_rate != 0:
+            ensure_person(user.login)
+
+    people, total_slices, total_hours = _build_people(
+        hours_by_person, tickets_by_person, display_login, config
+    )
 
     return PieReport(
         project_title=project_title,
@@ -148,3 +126,84 @@ def build_pie(tickets: list[Ticket], config: AppConfig, *, project_title: str, p
         time_multiplier=pie_cfg.time_multiplier,
         default_hourly_rate=pie_cfg.default_hourly_rate,
     )
+
+
+def _accumulate_ticket(
+    ticket: Ticket,
+    hours_per_unit: float,
+    recipients_of,
+    ensure_person,
+    hours_by_person: dict[str, float],
+    tickets_by_person: dict[str, list[TicketShare]],
+    skipped_no_estimate: list[Ticket],
+    skipped_no_assignee: list[Ticket],
+    skipped_zero_hours: list[Ticket],
+) -> None:
+    hours = parse_estimate_hours(ticket.estimate_raw, hours_per_unit)
+    if hours is None:
+        skipped_no_estimate.append(ticket)
+        return
+    if hours == 0:
+        skipped_zero_hours.append(ticket)
+        for login in recipients_of(ticket):
+            ensure_person(login)
+        return
+    if not ticket.assignees:
+        skipped_no_assignee.append(ticket)
+        return
+
+    recipients = recipients_of(ticket)
+    hours_each = hours / len(recipients)
+    share = TicketShare(
+        title=ticket.title,
+        number=ticket.number,
+        url=ticket.url,
+        hours=hours_each,
+        assignees=ticket.assignees,
+    )
+    for login in recipients:
+        key = ensure_person(login)
+        hours_by_person[key] = hours_by_person.get(key, 0.0) + hours_each
+        tickets_by_person[key].append(share)
+
+
+def _build_people(
+    hours_by_person: dict[str, float],
+    tickets_by_person: dict[str, list[TicketShare]],
+    display_login: dict[str, str],
+    config: AppConfig,
+) -> tuple[list[PersonSlice], float, float]:
+    people: list[PersonSlice] = []
+    total_slices = 0.0
+    total_hours = 0.0
+    multiplier = config.slicing_pie.time_multiplier
+    for key, hours in hours_by_person.items():
+        login = display_login[key]
+        user, used_default = user_for(login, config)
+        if user.effective_rate == 0:
+            continue
+        slices = hours * user.effective_rate * multiplier
+        total_slices += slices
+        total_hours += hours
+        people.append(
+            PersonSlice(
+                login=login,
+                name=user.name,
+                hours=hours,
+                hourly_rate=user.rate,
+                seniority=user.seniority,
+                multiplier=multiplier,
+                slices=slices,
+                percent=0.0,
+                used_default_rate=used_default,
+                tickets=tuple(tickets_by_person.get(key, ())),
+            )
+        )
+
+    people.sort(key=lambda person: (-person.slices, (person.name or person.login).lower()))
+    if total_slices > 0:
+        people = [
+            replace(person, percent=(person.slices / total_slices) * 100.0)
+            for person in people
+        ]
+    return people, total_slices, total_hours

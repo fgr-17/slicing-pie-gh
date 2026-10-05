@@ -12,3 +12,4 @@ wheels/
 # Local secrets (copy from slicingpie.toml.example)
 slicingpie.local.toml
 .env
+tmp/

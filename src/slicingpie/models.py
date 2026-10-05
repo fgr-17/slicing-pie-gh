@@ -26,8 +26,10 @@ class TicketShare:
 @dataclass(frozen=True)
 class PersonSlice:
     login: str
+    name: str
     hours: float
     hourly_rate: float
+    seniority: float
     multiplier: float
     slices: float
     percent: float

@@ -1,83 +1,125 @@
-# Slicing Pie · horas de GitHub
+# Slicing Pie - GitHub hours
 
-CLI de Python que lee las issues de un **GitHub Project**, toma los tickets **Done** con asignado y estimado, y muestra en terminal el **Slicing Pie** de las horas de trabajo.
+Python CLI that reads issues from a **GitHub Project**, takes **Done** tickets
+with an assignee and estimate, and prints the **Slicing Pie** of work hours.
 
-Por ahora solo cuenta horas. El modelo (Mike Moyer) para tiempo no pagado es:
+Only hours are counted for now. Mike Moyer's model for unpaid time is:
 
 ```text
-rebanadas = horas × tarifa de mercado × 2
-% pie     = rebanadas de la persona / rebanadas totales
+slices  = hours x market rate x 2
+% pie   = person slices / total slices
 ```
 
-Las horas salen del campo de estimado del Project. Si un ticket tiene varios asignados, las horas se parten a partes iguales.
+Hours come from the Project estimate field. When a ticket has several
+assignees, hours are split evenly.
 
-## Requisitos
+## Requirements
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) (recomendado) o pip
+- Docker
+- make
 
-## Arranque rápido (demo, sin GitHub)
+## Quick start (demo, no GitHub)
 
 ```bash
-uv sync
-uv run slicingpie
+make run
 ```
 
-Eso usa `slicingpie.toml` en modo `demo` y pinta un pie de ejemplo. También vale:
+That uses `slicingpie.toml` in `demo` mode and prints a sample pie. Also:
 
 ```bash
-uv run slicingpie --verbose
-uv run slicingpie --json
+make run ARGS="--verbose"
+make run ARGS="--json"
+make help
 ```
 
-## Datos reales de un GitHub Project
+## Real data from a GitHub Project
 
-1. Copia `slicingpie.toml.example` a `slicingpie.local.toml` (este archivo no se versiona).
-2. Pon `mode = "github"`, el dueño del Project y su número.
-3. Crea un token:
-   - Clásico: scopes `repo` y `project` (o `read:project`).
-   - Fine-grained: **Issues: Read** y **Projects: Read**.
-4. Exporta el token (mejor que dejarlo en el archivo):
+1. Copy `slicingpie.toml.example` to `slicingpie.local.toml` (this file is gitignored).
+2. Set `mode = "github"`, the Project owner, and its number.
+3. Create a token:
+   - Classic: scopes `repo` and `project` (or `read:project`).
+   - Fine-grained: **Issues: Read** and **Projects: Read**.
+4. Export the token (preferred over putting it in the file):
 
 ```bash
 export GITHUB_TOKEN=ghp_...
-uv run slicingpie -c slicingpie.local.toml --verbose
+make run
 ```
 
-El número del Project está en la URL:
+If `slicingpie.local.toml` exists, `make run` uses it. Otherwise it runs the demo.
+
+The Project number is in the URL:
 
 ```text
-https://github.com/orgs/MI-ORG/projects/12     → owner = MI-ORG, project_number = 12
-https://github.com/users/MI-USER/projects/3    → owner_type = user, project_number = 3
+https://github.com/orgs/MY-ORG/projects/12     -> owner = MY-ORG, project_number = 12
+https://github.com/users/MY-USER/projects/3    -> owner_type = user, project_number = 3
 ```
 
-Los nombres de campo (`Status`, `Estimate`, valores Done) tienen que coincidir con los del Project. No distinguen mayúsculas.
+Field names (`Status`, `Estimate`, Done values) must match the Project. Matching
+is case-insensitive.
 
-## Archivo de configuración
-
-Toda la config vive en un TOML local. El CLI busca, en este orden:
-
-1. `--config ruta`
-2. `slicingpie.local.toml` en el directorio actual
-3. `slicingpie.toml`
-
-| Sección | Qué controla |
-| --- | --- |
-| `mode` | `demo` o `github` |
-| `[github]` | token, owner, tipo de dueño, número de Project |
-| `[fields]` | nombre del campo de estado, valores Done, campo de estimado |
-| `[slicing_pie]` | multiplicador (2), tarifa por defecto, horas por unidad de estimado |
-| `[rates]` | tarifa horaria de mercado por login de GitHub |
-| `[display]` | símbolo de moneda |
-
-Si el estimado está en story points, pon `hours_per_estimate_unit` (por ejemplo `4`). Un valor tipo `8h` se trata siempre como horas.
-
-Tickets Done **sin estimado**, **sin asignado** o con **0 horas** no entran al pie; el informe los lista como omitidos.
-
-## Desarrollo
+## Repo user rates
 
 ```bash
-uv sync
-uv run pytest
-uv run slicingpie --verbose
+make sync-rates
 ```
+
+Reads collaborators from each repository linked to the Project (all: direct and
+outside) and adds a `[[users]]` block with `default_hourly_rate` and seniority
+`1`. If the login already exists, rate, seniority, and name are left alone.
+
+A GitHub Project cannot store app settings. Fields (Status, Estimate, numbers,
+text) are per ticket, not a global config or a per-person rate. Project
+description is free text. Rates live in the local TOML, which is not versioned.
+
+## Config file
+
+All settings live in a local TOML. The CLI looks for, in order:
+
+1. `--config path`
+2. `slicingpie.local.toml` in the current directory
+3. `slicingpie.toml`
+
+| Section | Controls |
+| --- | --- |
+| `mode` | `demo` or `github` |
+| `[github]` | token, owner, owner type, Project number |
+| `[fields]` | status field name, Done values, estimate field |
+| `[slicing_pie]` | multiplier (2), default rate, hours per estimate unit |
+| `[[users]]` | per person: `login`, `name`, `rate`, and `seniority` |
+| `[display]` | currency symbol and `language` (only `es` for now) |
+
+If the estimate is in story points, set `hours_per_estimate_unit` (for example
+`4`). A value like `8h` is always treated as hours.
+
+Done tickets **without estimate**, **without assignee**, or with **0 hours**
+do not enter the pie. The summary still counts them as skipped. The no-estimate
+list needs `--show-no-estimate`; the unassigned Done list needs
+`--show-unassigned`.
+
+`seniority` multiplies the rate: effective rate is `rate * seniority`. `1`
+means no change. The report shows `name`; if empty, the login.
+
+A person with effective rate **0** (`rate` or `seniority` at zero) is hidden.
+If the effective rate is greater than zero and hours are **0**, the person is
+still shown.
+
+`[rates]` with `login = rate` still works: seniority `1` and no name.
+`[[users]]` overrides that entry when the login is repeated.
+
+CLI output language comes from `display.language` (default `es`). Code and docs
+are English; only terminal strings are translated.
+
+## Development
+
+```bash
+make test
+make sast
+make run ARGS="--verbose"
+```
+
+`make sast` prints test coverage, LOC, cyclomatic and cognitive complexity,
+maintainability index, duplicate code, Bandit security findings, and Vulture
+dead-code suspects. It then evaluates [sast-thresholds.txt](sast-thresholds.txt)
+and shows a **Threshold gates** table (OK / WARN / FAIL). The command exits
+with code **1** if any gate is FAIL (WARN does not fail the run).
