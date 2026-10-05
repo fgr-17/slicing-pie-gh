@@ -54,7 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--detail",
         "--details",
-        action="store_true",
+        nargs="*",
+        metavar="SCOPE",
+        default=None,
         help=t("cli.help.detail"),
     )
     parser.add_argument(
@@ -67,6 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    try:
+        detail_scopes = _detail_scopes(args.detail)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
     try:
         config = load_config(args.config)
         set_language(config.display.language)
@@ -107,11 +114,26 @@ def main(argv: list[str] | None = None) -> int:
             show_no_estimate=args.show_no_estimate,
             show_unassigned=args.show_unassigned,
             show_skipped=args.show_skipped,
-            detail=args.detail,
+            detail_expenses="expenses" in detail_scopes,
+            detail_review="review" in detail_scopes,
         )
         print()
         print(t("cli.config_path", path=config.path))
     return 0
+
+
+def _detail_scopes(raw: list[str] | None) -> frozenset[str]:
+    """Normalize --detail scopes. None = off; [] = all detail tables."""
+    if raw is None:
+        return frozenset()
+    scopes = {item.strip().casefold() for item in raw if item.strip()}
+    if not scopes:
+        return frozenset({"expenses", "review"})
+    allowed = {"expenses", "review"}
+    unknown = sorted(scopes - allowed)
+    if unknown:
+        raise ValueError(t("cli.bad_detail_scope", scopes=", ".join(unknown)))
+    return frozenset(scopes)
 
 
 def _wait_message(mode: str) -> str:

@@ -195,6 +195,7 @@ def build_pie(
         hours_per_day=pie_cfg.hours_per_day,
         days_per_story_point=pie_cfg.days_per_story_point,
         hours_per_estimate_unit=pie_cfg.hours_per_estimate_unit,
+        review_percent=pie_cfg.review_percent,
         expenses=tuple(expenses),
         total_expenses=total_expenses,
         total_expense_slices=total_expense_slices,
@@ -235,18 +236,43 @@ def _accumulate_ticket(
         return 0
 
     recipients = recipients_of(ticket)
-    hours_each = hours / len(recipients)
-    share = TicketShare(
+    reviewers = ticket.reviewers
+    review_ratio = 0.0
+    if reviewers and pie_cfg.review_percent > 0:
+        review_ratio = pie_cfg.review_percent / 100.0
+    review_hours = hours * review_ratio
+    work_hours = hours - review_hours
+
+    hours_each = work_hours / len(recipients)
+    work_share = TicketShare(
         title=ticket.title,
         number=ticket.number,
         url=ticket.url,
         hours=hours_each,
         assignees=ticket.assignees,
+        role="work",
+        reviewers=reviewers,
     )
     for login in recipients:
         key = ensure_person(login)
         hours_by_person[key] = hours_by_person.get(key, 0.0) + hours_each
-        tickets_by_person[key].append(share)
+        tickets_by_person[key].append(work_share)
+
+    if review_hours > 0 and reviewers:
+        review_each = review_hours / len(reviewers)
+        review_share = TicketShare(
+            title=ticket.title,
+            number=ticket.number,
+            url=ticket.url,
+            hours=review_each,
+            assignees=ticket.assignees,
+            role="review",
+            reviewers=reviewers,
+        )
+        for login in reviewers:
+            key = ensure_person(login)
+            hours_by_person[key] = hours_by_person.get(key, 0.0) + review_each
+            tickets_by_person[key].append(review_share)
     return 1
 
 

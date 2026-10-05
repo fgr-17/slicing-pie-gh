@@ -66,15 +66,20 @@ endef
 
 .DEFAULT_GOAL := run
 .PHONY: help build run sync-rates test sast verify \
-	detail details verbose json show-skipped show-no-estimate show-unassigned \
+	detail details expenses review verbose json show-skipped show-no-estimate show-unassigned \
 	--detail --details --verbose --json --show-skipped --show-no-estimate --show-unassigned
 
-# Extra goals become CLI flags: `make run details verbose`
+# Extra goals become CLI flags: `make run detail expenses` / `detail review`
 # GNU Make treats bare `--details` as its own option, so use a word goal
-# (`details`) or stop option parsing: `make run -- --details`.
+# (`details`) or stop option parsing: `make run -- --detail review`.
 RUN_FLAGS := $(ARGS)
+DETAIL_SCOPES := $(filter expenses review,$(MAKECMDGOALS))
 ifneq (,$(filter detail details --detail --details,$(MAKECMDGOALS)))
+ifneq (,$(DETAIL_SCOPES))
+RUN_FLAGS += --detail $(DETAIL_SCOPES)
+else
 RUN_FLAGS += --detail
+endif
 endif
 ifneq (,$(filter verbose --verbose,$(MAKECMDGOALS)))
 RUN_FLAGS += --verbose
@@ -92,19 +97,22 @@ ifneq (,$(filter show-unassigned --show-unassigned,$(MAKECMDGOALS)))
 RUN_FLAGS += --show-unassigned
 endif
 
-detail details verbose json show-skipped show-no-estimate show-unassigned \
+detail details expenses review verbose json show-skipped show-no-estimate show-unassigned \
 --detail --details --verbose --json --show-skipped --show-no-estimate --show-unassigned:
 	@:
 
 help:
 	@printf '%b\n' "$(BOLD)$(CYAN)slicingpie$(RESET)  $(DIM)docker$(RESET)"
 	@printf '%s\n' "  make run                         pie (local.toml if present, else demo)"
-	@printf '%s\n' "  make run details                 expense detail by date"
+	@printf '%s\n' "  make run detail                  all detail tables (expenses + review)"
+	@printf '%s\n' "  make run detail expenses         expense detail by date"
+	@printf '%s\n' "  make run detail review           review hours by ticket"
+	@printf '%s\n' "  make run details                 same as detail (all)"
 	@printf '%s\n' "  make run verbose                 list tickets per person"
 	@printf '%s\n' "  make run json                    JSON output"
 	@printf '%s\n' "  make run show-skipped            list omitted Done tickets"
-	@printf '%s\n' "  make run details verbose         combine flags"
-	@printf '%s\n' "  make run -- --details            same flags after -- (Make-safe)"
+	@printf '%s\n' "  make run detail expenses review  both detail tables"
+	@printf '%s\n' "  make run -- --detail review      same flags after -- (Make-safe)"
 	@printf '%s\n' "  make sync-rates                  repo users into slicingpie.local.toml"
 	@printf '%s\n' "  make test                        pytest inside Docker"
 	@printf '%s\n' "  make sast                        coverage, complexity, LOC, security"
