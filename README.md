@@ -84,7 +84,7 @@ All settings live in a local TOML. The CLI looks for, in order:
 | `mode` | `demo` or `github` |
 | `[github]` | token, owner, owner type, Project number |
 | `[fields]` | status field name, Done values, estimate field |
-| `[slicing_pie]` | effort unit + conversion to hours, default rate, split; optional `time_multiplier` |
+| `[slicing_pie]` | effort unit, `review_percent`, default rate, split; optional `time_multiplier` |
 | `[[users]]` | per person: `login`, `name`, `rate`, and `seniority` |
 | `[display]` | currency symbol and `language` (only `es` for now) |
 | `[expenses]` | expense label, currency; optional `cash_multiplier` override |
@@ -105,10 +105,19 @@ The Project estimate field is a number only; the unit is always
 `effort_unit` from the TOML. Legacy `hours_per_estimate_unit` still works as
 a direct hours factor when set.
 
+Review hours: if a Done issue was closed by a PR with an **APPROVED**
+review, each distinct approver is a reviewer. Set `review_percent` (0-100) to
+credit that share of the estimate as work hours to reviewers; assignees keep
+the rest. `0` disables review credit.
+
 Done tickets with the configured expense label are cash (not work hours). The
 report shows an expenses table (amount + slices) and a general summary
-(`work slices + expense slices`). Use `--detail` for each expense by person,
-month, and date.
+(`work slices + expense slices`). Detail tables:
+
+- `make run detail` / `make run details`: all detail tables (expenses + review)
+- `make run detail expenses`: expense rows only
+- `make run detail review`: review hours only
+- `make run detail expenses review`: both (same as bare detail)
 
 Done tickets **without estimate**, **without assignee**, or with **0 hours**
 (or 0 expense amount) do not enter the pie. The header still counts them as

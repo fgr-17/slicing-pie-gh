@@ -25,6 +25,8 @@ default_hourly_rate = 50.0
 effort_unit = "hours"
 hours_per_day = 8.0
 days_per_story_point = 1.0
+# Hours credited to APPROVED PR reviewers (% of ticket estimate). 0 disables.
+review_percent = 0.0
 split_among_assignees = true
 
 # seniority multiplies rate. name is the display name.

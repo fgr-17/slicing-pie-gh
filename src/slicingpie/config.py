@@ -54,6 +54,7 @@ class SlicingPieConfig:
     effort_unit: str = "hours"
     hours_per_day: float = 8.0
     days_per_story_point: float = 1.0
+    review_percent: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -265,6 +266,13 @@ def _parse_slicing_pie(
     if not isinstance(split, bool):
         raise ConfigError(t("config.bad_split"))
 
+    try:
+        review_percent = float(pie_raw.get("review_percent", 0.0))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(t("config.bad_review_percent")) from exc
+    if review_percent < 0 or review_percent > 100:
+        raise ConfigError(t("config.review_percent_range"))
+
     return SlicingPieConfig(
         time_multiplier=time_multiplier,
         default_hourly_rate=default_rate,
@@ -274,6 +282,7 @@ def _parse_slicing_pie(
         effort_unit=effort_unit,
         hours_per_day=hours_per_day,
         days_per_story_point=days_per_point,
+        review_percent=review_percent,
     )
 
 

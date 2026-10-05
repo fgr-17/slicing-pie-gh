@@ -35,6 +35,9 @@ effort_unit = "hours"
 hours_per_day = 8.0
 # story_points -> days, then days -> hours
 days_per_story_point = 1.0
+# APPROVED reviewers on PRs that closed the issue get this % of the estimate.
+# The rest stays with assignees. 0 disables review credit.
+review_percent = 20.0
 # Several assignees: split hours evenly. If false, only the first assignee counts.
 split_among_assignees = true
 

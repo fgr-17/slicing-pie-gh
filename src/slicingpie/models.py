@@ -14,6 +14,7 @@ class Ticket:
     item_type: str
     labels: tuple[str, ...] = ()
     occurred_at: str | None = None
+    reviewers: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,8 @@ class TicketShare:
     url: str | None
     hours: float
     assignees: tuple[str, ...]
+    role: str = "work"
+    reviewers: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,7 @@ class PieReport:
     hours_per_day: float = 8.0
     days_per_story_point: float = 1.0
     hours_per_estimate_unit: float = 1.0
+    review_percent: float = 0.0
     expenses: tuple[PersonExpenses, ...] = ()
     total_expenses: float = 0.0
     total_expense_slices: float = 0.0

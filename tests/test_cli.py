@@ -1,8 +1,11 @@
 import json
 from pathlib import Path
 
-from slicingpie.cli import main
+from slicingpie.cli import main, _detail_scopes
 from slicingpie.github_project import GitHubProjectClient, RepositoryUsers
+from slicingpie.display import render_report
+from slicingpie.pie import build_pie
+from helpers import sample_config, ticket
 
 
 def test_cli_demo_json(capsys, tmp_path: Path):
@@ -114,3 +117,60 @@ def test_cli_sync_rates_rejects_demo(capsys, tmp_path: Path):
     code = main(["--config", str(config), "--sync-rates"])
     assert code == 1
     assert "github" in capsys.readouterr().err
+
+
+def test_detail_scopes_normalize():
+    assert _detail_scopes(None) == frozenset()
+    assert _detail_scopes([]) == frozenset({"expenses", "review"})
+    assert _detail_scopes(["review"]) == frozenset({"review"})
+    assert _detail_scopes(["expenses", "REVIEW"]) == frozenset({"expenses", "review"})
+
+
+def test_detail_scopes_reject_unknown():
+    try:
+        _detail_scopes(["expenses", "cash"])
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "cash" in str(exc)
+
+
+def test_cli_detail_review_shows_table(capsys, tmp_path: Path):
+    config = tmp_path / "slicingpie.toml"
+    config.write_text(
+        Path("slicingpie.toml").read_text(encoding="utf-8").replace(
+            'review_percent = 0.0',
+            'review_percent = 20.0',
+        ),
+        encoding="utf-8",
+    )
+    assert main(["--config", str(config), "--detail", "review"]) == 0
+    out = capsys.readouterr().out
+    assert "Detalle de horas de revision" in out
+    assert "Rebanadas por horas de trabajo" not in out
+    assert "Resumen general" not in out
+
+
+def test_render_review_detail_lists_shares(capsys):
+    report = build_pie(
+        [
+            ticket(
+                "Reviewed",
+                assignees=("ana",),
+                estimate=10,
+                reviewers=("maria",),
+            )
+        ],
+        sample_config(review_percent=20.0),
+        project_title="t",
+        project_url=None,
+    )
+    render_report(
+        report,
+        verbose=False,
+        currency_symbol="$",
+        detail_review=True,
+    )
+    out = capsys.readouterr().out
+    assert "Detalle de horas de revision" in out
+    assert "Reviewed" in out or "#1" in out
+    assert "Rebanadas por horas de trabajo" not in out

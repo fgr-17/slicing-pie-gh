@@ -1,5 +1,5 @@
 from slicingpie.config import parse_config
-from slicingpie.github_project import parse_project_item
+from slicingpie.github_items import parse_project_item
 from pathlib import Path
 
 

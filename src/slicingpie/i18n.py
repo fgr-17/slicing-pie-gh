@@ -27,7 +27,8 @@ _MESSAGES: dict[str, dict[str, str]] = {
         ),
         "cli.help.json": "Imprime JSON en lugar de la tabla",
         "cli.help.detail": (
-            "Lista cada gasto por persona, organizado por mes y fecha"
+            "Solo tablas de detalle (sin resumen). Alcances: expenses, review. "
+            "Sin alcance = ambos."
         ),
         "cli.help.sync_rates": (
             "Agrega cada usuario del repo como un bloque [[users]], "
@@ -80,6 +81,21 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "display.expenses.detail_caption": (
             "Monto en moneda; rebanadas en resumen = monto x {multiplier}"
         ),
+        "display.expenses.empty_detail": (
+            "\n[dim]No hay gastos para detallar.[/dim]"
+        ),
+        "display.review.detail_title": "Detalle de horas de revision",
+        "display.review.detail_caption": (
+            "review_percent={percent}% del estimado; "
+            "rebanadas = horas x tarifa x seniority x {multiplier}"
+        ),
+        "display.review.empty": (
+            "\n[dim]No hay horas de revision "
+            "(sin PR aprobada o review_percent=0).[/dim]"
+        ),
+        "cli.bad_detail_scope": (
+            "Alcance de --detail invalido: {scopes}. Usa expenses y/o review."
+        ),
         "display.summary.title": "Resumen general",
         "display.summary.caption": (
             "Total = trabajo (x{time_multiplier}) + gastos (x{cash_multiplier})  "
@@ -108,6 +124,9 @@ _MESSAGES: dict[str, dict[str, str]] = {
         ),
         "display.col.bar": "Barra",
         "display.tickets_title": "Tickets contados por persona",
+        "display.col.role": "Rol",
+        "display.role.work": "trabajo",
+        "display.role.review": "revision",
         "display.skipped_title": "Tickets Done omitidos",
         "display.col.reason": "Motivo",
         "display.skip.no_estimate": "sin estimado",
@@ -164,6 +183,12 @@ _MESSAGES: dict[str, dict[str, str]] = {
         ),
         "config.bad_split": (
             "slicing_pie.split_among_assignees debe ser true o false."
+        ),
+        "config.bad_review_percent": (
+            "slicing_pie.review_percent debe ser un numero."
+        ),
+        "config.review_percent_range": (
+            "slicing_pie.review_percent debe estar entre 0 y 100."
         ),
         "config.bad_language": "display.language debe ser uno de: {languages}.",
         "config.rates_table": "[rates] debe ser una tabla login = tarifa.",
