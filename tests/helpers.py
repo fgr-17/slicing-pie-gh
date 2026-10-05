@@ -27,7 +27,7 @@ def sample_config(**pie_overrides):
             "split_among_assignees": True,
         },
         "rates": {"ana": 75, "carlos": 50, "maria": 65},
-        "display": {"currency_symbol": "$"},
+        "display": {"currency_symbol": "$", "language": "es"},
     }
     raw["slicing_pie"].update(pie_overrides)
     return parse_config(raw, Path("slicingpie.toml"))

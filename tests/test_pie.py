@@ -52,7 +52,11 @@ def test_demo_pie_matches_slicing_pie_formula():
 def test_split_and_first_assignee_only():
     tickets = [ticket("Pair", assignees=("ana", "carlos"), estimate=10)]
     split = build_pie(tickets, sample_config(), project_title="t", project_url=None)
-    assert {p.login: p.hours for p in split.people} == {"ana": 5.0, "carlos": 5.0}
+    assert {p.login: p.hours for p in split.people} == {
+        "ana": 5.0,
+        "carlos": 5.0,
+        "maria": 0.0,
+    }
 
     first_only = build_pie(
         tickets,
@@ -60,7 +64,11 @@ def test_split_and_first_assignee_only():
         project_title="t",
         project_url=None,
     )
-    assert {p.login: p.hours for p in first_only.people} == {"ana": 10.0}
+    assert {p.login: p.hours for p in first_only.people} == {
+        "ana": 10.0,
+        "carlos": 0.0,
+        "maria": 0.0,
+    }
 
 
 def test_ignores_tickets_not_done():
@@ -83,8 +91,96 @@ def test_default_rate_flag():
     assert person.slices == 2 * 50 * 2
 
 
+def test_zero_rate_hidden_zero_hours_with_rate_shown():
+    config = parse_config(
+        {
+            "mode": "demo",
+            "github": {"owner": "acme", "project_number": 1, "token": "t"},
+            "fields": {"status": "Status", "done": ["Done"], "estimate": "Estimate"},
+            "slicing_pie": {"time_multiplier": 2, "default_hourly_rate": 50},
+            "rates": {"ana": 0, "bob": 40, "cara": 10, "ghost": 0},
+        },
+        Path("x.toml"),
+    )
+    tickets = [
+        ticket("Ana", assignees=("ana",), estimate=8, number=1),
+        ticket("Bob", assignees=("bob",), estimate=0, number=2),
+        ticket("Dan", assignees=("dan",), estimate=4, number=3),
+    ]
+    report = build_pie(tickets, config, project_title="t", project_url=None)
+    by_login = {person.login: person for person in report.people}
+
+    assert "ana" not in by_login
+    assert "ghost" not in by_login
+    assert by_login["bob"].hours == 0
+    assert by_login["bob"].hourly_rate == 40
+    assert by_login["bob"].slices == 0
+    assert by_login["cara"].hours == 0
+    assert by_login["cara"].slices == 0
+    assert by_login["dan"].hours == 4
+    assert by_login["dan"].slices == 4 * 50 * 2
+    assert report.total_hours == 4
+    assert report.total_slices == 400
+    assert by_login["dan"].percent == 100
+
+
+def test_seniority_scales_rate_and_name_is_kept():
+    config = parse_config(
+        {
+            "mode": "demo",
+            "github": {"owner": "acme", "project_number": 1, "token": "t"},
+            "fields": {"status": "Status", "done": ["Done"], "estimate": "Estimate"},
+            "slicing_pie": {"time_multiplier": 2, "default_hourly_rate": 50},
+            "users": [
+                {
+                    "login": "ana",
+                    "name": "Ana Perez",
+                    "rate": 50,
+                    "seniority": 2,
+                },
+                {"login": "nulo", "name": "Nulo", "rate": 80, "seniority": 0},
+            ],
+        },
+        Path("x.toml"),
+    )
+    report = build_pie(
+        [ticket("Ana", assignees=("ana",), estimate=4, number=1)],
+        config,
+        project_title="t",
+        project_url=None,
+    )
+    assert [person.login for person in report.people] == ["ana"]
+    person = report.people[0]
+    assert person.name == "Ana Perez"
+    assert person.hourly_rate == 50
+    assert person.seniority == 2
+    assert person.slices == 4 * 50 * 2 * 2
+    assert report.total_slices == person.slices
+
+
+def test_users_reject_negative_seniority():
+    with pytest.raises(ConfigError, match="seniority"):
+        parse_config(
+            {
+                "mode": "demo",
+                "users": [{"login": "ana", "rate": 10, "seniority": -1}],
+            },
+            Path("x.toml"),
+        )
+
+
 def test_empty_pie():
-    report = build_pie([], sample_config(), project_title="t", project_url=None)
+    config = parse_config(
+        {
+            "mode": "demo",
+            "github": {"owner": "acme", "project_number": 1, "token": "t"},
+            "fields": {"status": "Status", "done": ["Done"], "estimate": "Estimate"},
+            "slicing_pie": {"default_hourly_rate": 50},
+            "rates": {},
+        },
+        Path("x.toml"),
+    )
+    report = build_pie([], config, project_title="t", project_url=None)
     assert report.people == ()
     assert report.total_slices == 0
 

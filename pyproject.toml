@@ -1,7 +1,7 @@
 [project]
 name = "slicingpie"
 version = "0.1.0"
-description = "Calcula el Slicing Pie (horas) desde tickets Done de un GitHub Project."
+description = "Compute the Slicing Pie (hours) from Done tickets on a GitHub Project."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -17,8 +17,26 @@ requires = ["uv_build>=0.12.21,<0.13.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    "bandit>=1.7",
+    "complexipy>=3",
+    "pylint>=3",
+    "pytest>=8.0",
+    "pytest-cov>=5",
+    "radon>=6",
+    "vulture>=2.11",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
+
+[tool.coverage.run]
+source = ["slicingpie"]
+branch = true
+omit = ["*/slicingpie/sast.py", "*/slicingpie/sast_gates.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+omit = ["*/slicingpie/sast.py", "*/slicingpie/sast_gates.py"]

@@ -1,12 +1,12 @@
-# Configuración local del Slicing Pie.
-# Copia slicingpie.toml.example y rellena GitHub cuando quieras datos reales.
-# También puedes usar slicingpie.local.toml (tiene prioridad y no se versiona).
+# Local Slicing Pie config.
+# Copy slicingpie.toml.example and fill in GitHub when you want real data.
+# You can also use slicingpie.local.toml (it wins and is not versioned).
 
 mode = "demo"
 
 [github]
 token = ""
-owner = "mi-org"
+owner = "my-org"
 owner_type = "auto"
 project_number = 1
 
@@ -21,10 +21,25 @@ default_hourly_rate = 50.0
 hours_per_estimate_unit = 1.0
 split_among_assignees = true
 
-[rates]
-ana = 75
-carlos = 50
-maria = 65
+# seniority multiplies rate. name is the display name.
+[[users]]
+login = "ana"
+name = "Ana"
+rate = 75
+seniority = 1
+
+[[users]]
+login = "carlos"
+name = "Carlos"
+rate = 50
+seniority = 1
+
+[[users]]
+login = "maria"
+name = "Maria"
+rate = 65
+seniority = 1
 
 [display]
 currency_symbol = "$"
+language = "es"

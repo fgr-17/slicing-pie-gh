@@ -1,44 +1,55 @@
-# Copia este archivo a slicingpie.toml o slicingpie.local.toml y rellena los valores.
-# El token también puede ir en la variable de entorno GITHUB_TOKEN (recomendado).
+# Copy this file to slicingpie.toml or slicingpie.local.toml and fill in values.
+# The token can also come from the GITHUB_TOKEN environment variable (preferred).
 
 mode = "github"
 
 [github]
-# Token clásico: scopes `repo` y `project` (o `read:project`).
-# Token fine-grained: Issues Read + Projects Read sobre el repo/org del Project.
+# Classic token: scopes `repo` and `project` (or `read:project`).
+# Fine-grained token: Issues Read + Projects Read on the Project repo/org.
 token = ""
-# Usuario u organización dueña del Project (no necesariamente del repo).
-owner = "mi-org"
+# User or organization that owns the Project (not necessarily the repo).
+owner = "my-org"
 # auto | organization | user
 owner_type = "auto"
 project_number = 1
-# API GraphQL (cámbiala solo si usas GitHub Enterprise).
+# GraphQL API (change only for GitHub Enterprise).
 api_url = "https://api.github.com/graphql"
 
 [fields]
-# Nombre exacto (sin importar mayúsculas) del campo de estado del Project.
+# Exact name (case-insensitive) of the Project status field.
 status = "Status"
-# Valores que cuentan como terminado.
+# Values that count as finished. Keep locale aliases your Project uses.
 done = ["Done", "Listo", "Completado"]
-# Campo numérico (o texto tipo "8h") con el estimado. Se interpreta en horas
-# salvo que hours_per_estimate_unit sea distinto de 1.
+# Numeric field (or text like "8h") with the estimate. Treated as hours unless
+# hours_per_estimate_unit is not 1.
 estimate = "Estimate"
 
 [slicing_pie]
-# Modelo Slicing Pie (Mike Moyer): rebanadas = horas × tarifa de mercado × 2
-# para tiempo no pagado. Por ahora solo se cuentan horas de tickets Done.
+# Slicing Pie model (Mike Moyer): slices = hours x market rate x 2
+# for unpaid time. Only Done ticket hours are counted for now.
 time_multiplier = 2.0
 default_hourly_rate = 50.0
-# Si el estimado está en story points, pon aquí las horas por punto (p. ej. 4).
+# If the estimate is in story points, set hours per point here (e.g. 4).
 hours_per_estimate_unit = 1.0
-# Varios asignados: reparte las horas a partes iguales. Si es false, cuenta
-# solo al primer asignado.
+# Several assignees: split hours evenly. If false, only the first assignee counts.
 split_among_assignees = true
 
-[rates]
-# login de GitHub = tarifa horaria de mercado
-# ana = 75
-# carlos = 50
+# User list. seniority multiplies rate (1 = no change).
+# name is the display name. login must be the GitHub login.
+# Fill new users with: make sync-rates
+[[users]]
+login = "ana"
+name = "Ana"
+rate = 75
+seniority = 1
+
+[[users]]
+login = "carlos"
+name = "Carlos"
+rate = 50
+seniority = 1.2
 
 [display]
 currency_symbol = "$"
+# CLI language. Only "es" is available for now.
+language = "es"
