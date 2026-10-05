@@ -1,17 +1,14 @@
 # Slicing Pie - GitHub hours
 
 Python CLI that reads issues from a **GitHub Project**, takes **Done** tickets
-with an assignee and estimate, and prints the **Slicing Pie** of work hours.
+with an assignee and estimate, and prints the **Slicing Pie** of work hours
+and unreimbursed cash expenses.
 
-Only hours are counted for now. Mike Moyer's model for unpaid time is:
-
-```text
-slices  = hours x market rate x 2
-% pie   = person slices / total slices
-```
+Mike Moyer model multipliers (time / cash):
+[mike-moyer-model.toml](mike-moyer-model.toml).
 
 Hours come from the Project estimate field. When a ticket has several
-assignees, hours are split evenly.
+assignees, hours are split evenly (configurable).
 
 ## Requirements
 
@@ -27,8 +24,10 @@ make run
 That uses `slicingpie.toml` in `demo` mode and prints a sample pie. Also:
 
 ```bash
-make run ARGS="--verbose"
-make run ARGS="--json"
+make run
+make run details
+make run verbose
+make run json
 make help
 ```
 
@@ -85,24 +84,30 @@ All settings live in a local TOML. The CLI looks for, in order:
 | `mode` | `demo` or `github` |
 | `[github]` | token, owner, owner type, Project number |
 | `[fields]` | status field name, Done values, estimate field |
-| `[slicing_pie]` | multiplier (2), default rate, hours per estimate unit |
+| `[slicing_pie]` | default rate, hours per estimate unit, split; optional `time_multiplier` override |
 | `[[users]]` | per person: `login`, `name`, `rate`, and `seniority` |
 | `[display]` | currency symbol and `language` (only `es` for now) |
+| `[expenses]` | expense label, currency; optional `cash_multiplier` override |
+
+Model multipliers: [mike-moyer-model.toml](mike-moyer-model.toml).
+Full example: [slicingpie.toml.example](slicingpie.toml.example).
 
 If the estimate is in story points, set `hours_per_estimate_unit` (for example
 `4`). A value like `8h` is always treated as hours.
 
+Done tickets with the configured expense label are cash (not work hours). The
+report shows an expenses table (amount + slices) and a general summary
+(`work slices + expense slices`). Use `--detail` for each expense by person,
+month, and date.
+
 Done tickets **without estimate**, **without assignee**, or with **0 hours**
-do not enter the pie. The summary still counts them as skipped. The no-estimate
-list needs `--show-no-estimate`; the unassigned Done list needs
-`--show-unassigned`.
+(or 0 expense amount) do not enter the pie. The header still counts them as
+skipped. Lists them with `--show-skipped` (all), or
+`--show-no-estimate` / `--show-unassigned` for one reason.
 
-`seniority` multiplies the rate: effective rate is `rate * seniority`. `1`
-means no change. The report shows `name`; if empty, the login.
-
-A person with effective rate **0** (`rate` or `seniority` at zero) is hidden.
-If the effective rate is greater than zero and hours are **0**, the person is
-still shown.
+The report shows `name`; if empty, the login. Effective rate `0` hides the
+person from the work table. If the effective rate is greater than zero and
+hours are **0**, the person is still shown.
 
 `[rates]` with `login = rate` still works: seniority `1` and no name.
 `[[users]]` overrides that entry when the login is repeated.

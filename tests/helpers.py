@@ -40,5 +40,17 @@ def ticket(
     status: str | None = "Done",
     estimate=8,
     number: int | None = 1,
+    labels: tuple[str, ...] = (),
+    occurred_at: str | None = None,
 ) -> Ticket:
-    return Ticket(title, number, None, assignees, status, estimate, "Issue")
+    return Ticket(
+        title,
+        number,
+        None,
+        assignees,
+        status,
+        estimate,
+        "Issue",
+        labels=labels,
+        occurred_at=occurred_at,
+    )

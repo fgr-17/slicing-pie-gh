@@ -45,8 +45,11 @@ def test_demo_pie_matches_slicing_pie_formula():
     assert report.skipped_no_estimate[0].number == 30
     assert report.skipped_no_assignee[0].number == 31
     assert report.skipped_zero_hours[0].number == 32
-    assert report.done_count == 11
+    assert report.done_count == 14
     assert report.counted_count == 8
+    assert report.counted_expenses == 3
+    assert report.total_expenses == 330
+    assert report.total_expense_slices == 1320
 
 
 def test_split_and_first_assignee_only():

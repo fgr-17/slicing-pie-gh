@@ -8,7 +8,7 @@ import pytest
 def test_default_language_is_spanish():
     set_language("es")
     assert get_language() == "es"
-    assert "Rebanadas" in t("display.table.title")
+    assert "Rebanadas por horas" in t("display.table.title")
 
 
 def test_unknown_language_falls_back_to_spanish():

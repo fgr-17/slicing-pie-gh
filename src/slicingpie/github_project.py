@@ -46,6 +46,9 @@ query ProjectItems($login: String!, $number: Int!, $cursor: String) {
               number
               title
               url
+              createdAt
+              closedAt
+              labels(first: 20) { nodes { name } }
               assignees(first: 10) { nodes { login } }
             }
             ... on PullRequest {
@@ -56,6 +59,7 @@ query ProjectItems($login: String!, $number: Int!, $cursor: String) {
             }
             ... on DraftIssue {
               title
+              createdAt
               assignees(first: 10) { nodes { login } }
             }
           }
@@ -436,18 +440,50 @@ def parse_project_item(node: dict[str, Any], config: AppConfig) -> Ticket | None
     if typename not in {"Issue", "DraftIssue"}:
         return None
 
-    assignees = tuple(
+    status, estimate = _read_status_and_estimate(
+        node.get("fieldValues") or {},
+        config.fields.status,
+        config.fields.estimate,
+    )
+    return Ticket(
+        title=str(content.get("title") or t("github.untitled")),
+        number=content.get("number"),
+        url=content.get("url"),
+        assignees=_assignee_logins(content),
+        status=status,
+        estimate_raw=estimate,
+        item_type=str(typename),
+        labels=_label_names(content),
+        occurred_at=_ticket_date(content),
+    )
+
+
+def _assignee_logins(content: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(
         login
         for user in (content.get("assignees") or {}).get("nodes") or []
         if (login := (user or {}).get("login"))
     )
 
+
+def _label_names(content: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(
+        name
+        for label in (content.get("labels") or {}).get("nodes") or []
+        if (name := str((label or {}).get("name") or "").strip())
+    )
+
+
+def _read_status_and_estimate(
+    field_values: dict[str, Any],
+    status_field: str,
+    estimate_field: str,
+) -> tuple[str | None, float | str | None]:
     status: str | None = None
     estimate: float | str | None = None
-    status_name = config.fields.status.casefold()
-    estimate_name = config.fields.estimate.casefold()
-
-    for field_value in (node.get("fieldValues") or {}).get("nodes") or []:
+    status_name = status_field.casefold()
+    estimate_name = estimate_field.casefold()
+    for field_value in field_values.get("nodes") or []:
         field = field_value.get("field") or {}
         field_name = str(field.get("name") or "").casefold()
         if not field_name:
@@ -455,17 +491,27 @@ def parse_project_item(node: dict[str, Any], config: AppConfig) -> Ticket | None
         if field_name == status_name and field_value.get("name"):
             status = str(field_value["name"])
         elif field_name == estimate_name:
-            if field_value.get("number") is not None:
-                estimate = field_value["number"]
-            elif field_value.get("text"):
-                estimate = str(field_value["text"])
+            estimate = _estimate_from_field(field_value, estimate)
+    return status, estimate
 
-    return Ticket(
-        title=str(content.get("title") or t("github.untitled")),
-        number=content.get("number"),
-        url=content.get("url"),
-        assignees=assignees,
-        status=status,
-        estimate_raw=estimate,
-        item_type=str(typename),
-    )
+
+def _estimate_from_field(
+    field_value: dict[str, Any], current: float | str | None
+) -> float | str | None:
+    if field_value.get("number") is not None:
+        return field_value["number"]
+    if field_value.get("text"):
+        return str(field_value["text"])
+    return current
+
+
+def _ticket_date(content: dict[str, Any]) -> str | None:
+    for key in ("closedAt", "createdAt"):
+        raw = content.get(key)
+        if not raw:
+            continue
+        text = str(raw).strip()
+        if len(text) >= 10:
+            return text[:10]
+    return None
+

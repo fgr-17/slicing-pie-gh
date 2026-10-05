@@ -1,6 +1,7 @@
 # Local Slicing Pie config.
 # Copy slicingpie.toml.example and fill in GitHub when you want real data.
 # You can also use slicingpie.local.toml (it wins and is not versioned).
+# Model multipliers: mike-moyer-model.toml
 
 mode = "demo"
 
@@ -16,7 +17,6 @@ done = ["Done", "Listo", "Completado"]
 estimate = "Estimate"
 
 [slicing_pie]
-time_multiplier = 2.0
 default_hourly_rate = 50.0
 hours_per_estimate_unit = 1.0
 split_among_assignees = true
@@ -43,3 +43,7 @@ seniority = 1
 [display]
 currency_symbol = "$"
 language = "es"
+
+[expenses]
+label = "[expensa]"
+currency = "USD"

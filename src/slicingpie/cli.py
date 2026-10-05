@@ -42,9 +42,20 @@ def build_parser() -> argparse.ArgumentParser:
         help=t("cli.help.show_unassigned"),
     )
     parser.add_argument(
+        "--show-skipped",
+        action="store_true",
+        help=t("cli.help.show_skipped"),
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help=t("cli.help.json"),
+    )
+    parser.add_argument(
+        "--detail",
+        "--details",
+        action="store_true",
+        help=t("cli.help.detail"),
     )
     parser.add_argument(
         "--sync-rates",
@@ -95,6 +106,8 @@ def main(argv: list[str] | None = None) -> int:
             currency_symbol=config.display.currency_symbol,
             show_no_estimate=args.show_no_estimate,
             show_unassigned=args.show_unassigned,
+            show_skipped=args.show_skipped,
+            detail=args.detail,
         )
         print()
         print(t("cli.config_path", path=config.path))

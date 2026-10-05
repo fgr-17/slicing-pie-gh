@@ -26,17 +26,25 @@ def test_cli_skipped_lists_are_opt_in(capsys, tmp_path: Path):
     plain = capsys.readouterr().out
     assert "#30" not in plain
     assert "#31" not in plain
-    assert "Estimado en cero" in plain
+    assert "Estimado en cero" not in plain
+    assert "Tickets Done omitidos" not in plain
 
     assert main(["--config", str(config), "--show-no-estimate"]) == 0
     estimates = capsys.readouterr().out
     assert "#30" in estimates
     assert "#31" not in estimates
+    assert "Estimado en cero" not in estimates
 
     assert main(["--config", str(config), "--show-unassigned"]) == 0
     unassigned = capsys.readouterr().out
     assert "#31" in unassigned
     assert "#30" not in unassigned
+
+    assert main(["--config", str(config), "--show-skipped"]) == 0
+    skipped = capsys.readouterr().out
+    assert "#30" in skipped
+    assert "#31" in skipped
+    assert "Estimado en cero" in skipped
 
 
 def test_cli_github_missing_token(capsys, tmp_path: Path, monkeypatch):

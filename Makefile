@@ -65,12 +65,46 @@ define docker_run
 endef
 
 .DEFAULT_GOAL := run
-.PHONY: help build run sync-rates test sast verify
+.PHONY: help build run sync-rates test sast verify \
+	detail details verbose json show-skipped show-no-estimate show-unassigned \
+	--detail --details --verbose --json --show-skipped --show-no-estimate --show-unassigned
+
+# Extra goals become CLI flags: `make run details verbose`
+# GNU Make treats bare `--details` as its own option, so use a word goal
+# (`details`) or stop option parsing: `make run -- --details`.
+RUN_FLAGS := $(ARGS)
+ifneq (,$(filter detail details --detail --details,$(MAKECMDGOALS)))
+RUN_FLAGS += --detail
+endif
+ifneq (,$(filter verbose --verbose,$(MAKECMDGOALS)))
+RUN_FLAGS += --verbose
+endif
+ifneq (,$(filter json --json,$(MAKECMDGOALS)))
+RUN_FLAGS += --json
+endif
+ifneq (,$(filter show-skipped --show-skipped,$(MAKECMDGOALS)))
+RUN_FLAGS += --show-skipped
+endif
+ifneq (,$(filter show-no-estimate --show-no-estimate,$(MAKECMDGOALS)))
+RUN_FLAGS += --show-no-estimate
+endif
+ifneq (,$(filter show-unassigned --show-unassigned,$(MAKECMDGOALS)))
+RUN_FLAGS += --show-unassigned
+endif
+
+detail details verbose json show-skipped show-no-estimate show-unassigned \
+--detail --details --verbose --json --show-skipped --show-no-estimate --show-unassigned:
+	@:
 
 help:
 	@printf '%b\n' "$(BOLD)$(CYAN)slicingpie$(RESET)  $(DIM)docker$(RESET)"
 	@printf '%s\n' "  make run                         pie (local.toml if present, else demo)"
-	@printf '%s\n' "  make run ARGS=\"--verbose\"        extra CLI flags"
+	@printf '%s\n' "  make run details                 expense detail by date"
+	@printf '%s\n' "  make run verbose                 list tickets per person"
+	@printf '%s\n' "  make run json                    JSON output"
+	@printf '%s\n' "  make run show-skipped            list omitted Done tickets"
+	@printf '%s\n' "  make run details verbose         combine flags"
+	@printf '%s\n' "  make run -- --details            same flags after -- (Make-safe)"
 	@printf '%s\n' "  make sync-rates                  repo users into slicingpie.local.toml"
 	@printf '%s\n' "  make test                        pytest inside Docker"
 	@printf '%s\n' "  make sast                        coverage, complexity, LOC, security"
@@ -90,7 +124,7 @@ build:
 	fi
 
 run: build
-	@$(call docker_run,$(ARGS))
+	@$(call docker_run,$(RUN_FLAGS))
 
 sync-rates: build
 	@if [ ! -f "$(ROOT)/slicingpie.local.toml" ]; then \
@@ -98,7 +132,7 @@ sync-rates: build
 		printf '%b\n' "Copy slicingpie.toml.example and fill in the Project."; \
 		exit 1; \
 	fi
-	@$(call docker_run,--sync-rates $(ARGS))
+	@$(call docker_run,--sync-rates $(RUN_FLAGS))
 
 test: build
 	@$(DOCKER) run --rm --entrypoint pytest $(IMAGE)

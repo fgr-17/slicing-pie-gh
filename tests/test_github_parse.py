@@ -27,6 +27,9 @@ def test_parse_issue_with_number_estimate():
             "number": 42,
             "title": "Cerrar checkout",
             "url": "https://github.com/acme/app/issues/42",
+            "createdAt": "2026-01-02T10:00:00Z",
+            "closedAt": "2026-01-15T12:00:00Z",
+            "labels": {"nodes": [{"name": "[expensa]"}, {"name": "infra"}]},
             "assignees": {"nodes": [{"login": "ana"}]},
         },
         "fieldValues": {
@@ -48,6 +51,8 @@ def test_parse_issue_with_number_estimate():
     assert ticket.assignees == ("ana",)
     assert ticket.status == "Done"
     assert ticket.estimate_raw == 8.0
+    assert ticket.labels == ("[expensa]", "infra")
+    assert ticket.occurred_at == "2026-01-15"
 
 
 def test_parse_text_estimate_and_skip_pull_request():
