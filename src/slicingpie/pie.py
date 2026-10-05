@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 import re
 
-from slicingpie.config import AppConfig, PersonConfig
+from slicingpie.config import AppConfig, PersonConfig, SlicingPieConfig
 from slicingpie.models import (
     ExpenseItem,
     PersonExpenses,
@@ -15,10 +15,8 @@ from slicingpie.models import (
 )
 
 
-_ESTIMATE = re.compile(
-    r"^\s*([0-9]+(?:[.,][0-9]+)?)\s*(h|hr|hrs|hora|horas)?\s*$",
-    re.IGNORECASE,
-)
+# GitHub Project number fields are numeric; allow a plain decimal string too.
+_ESTIMATE = re.compile(r"^\s*([0-9]+(?:[.,][0-9]+)?)\s*$")
 _AMOUNT = re.compile(
     r"^\s*[$]?\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:usd|us\$|\$)?\s*$",
     re.IGNORECASE,
@@ -26,7 +24,11 @@ _AMOUNT = re.compile(
 
 
 def parse_estimate_hours(value: object, hours_per_unit: float) -> float | None:
-    """Convert the estimate field into work hours."""
+    """Convert a numeric estimate into work hours via ``hours_per_unit``.
+
+    GitHub Project number fields only store numbers. The unit (hours, days,
+    story points) comes from ``effort_unit`` in config, not from the field.
+    """
     if value is None:
         return None
     if isinstance(value, bool):
@@ -43,10 +45,8 @@ def parse_estimate_hours(value: object, hours_per_unit: float) -> float | None:
     if not match:
         return None
 
-    amount = float(match.group(1).replace(",", "."))
-    if match.group(2):
-        return amount
-    return amount * hours_per_unit
+    hours = float(match.group(1).replace(",", ".")) * hours_per_unit
+    return hours if hours >= 0 else None
 
 
 def parse_expense_amount(value: object) -> float | None:
@@ -151,7 +151,7 @@ def build_pie(
         else:
             counted = _accumulate_ticket(
                 ticket,
-                pie_cfg.hours_per_estimate_unit,
+                pie_cfg,
                 recipients_of,
                 ensure_person,
                 hours_by_person,
@@ -191,6 +191,10 @@ def build_pie(
         skipped_zero_hours=tuple(skipped_zero_hours),
         time_multiplier=pie_cfg.time_multiplier,
         default_hourly_rate=pie_cfg.default_hourly_rate,
+        effort_unit=pie_cfg.effort_unit,
+        hours_per_day=pie_cfg.hours_per_day,
+        days_per_story_point=pie_cfg.days_per_story_point,
+        hours_per_estimate_unit=pie_cfg.hours_per_estimate_unit,
         expenses=tuple(expenses),
         total_expenses=total_expenses,
         total_expense_slices=total_expense_slices,
@@ -205,7 +209,7 @@ def build_pie(
 
 def _accumulate_ticket(
     ticket: Ticket,
-    hours_per_unit: float,
+    pie_cfg: SlicingPieConfig,
     recipients_of,
     ensure_person,
     hours_by_person: dict[str, float],
@@ -214,7 +218,10 @@ def _accumulate_ticket(
     skipped_no_assignee: list[Ticket],
     skipped_zero_hours: list[Ticket],
 ) -> int:
-    hours = parse_estimate_hours(ticket.estimate_raw, hours_per_unit)
+    hours = parse_estimate_hours(
+        ticket.estimate_raw,
+        pie_cfg.hours_per_estimate_unit,
+    )
     if hours is None:
         skipped_no_estimate.append(ticket)
         return 0

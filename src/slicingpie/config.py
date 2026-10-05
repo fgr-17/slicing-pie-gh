@@ -51,6 +51,9 @@ class SlicingPieConfig:
     hours_per_estimate_unit: float
     split_among_assignees: bool
     users: dict[str, PersonConfig]
+    effort_unit: str = "hours"
+    hours_per_day: float = 8.0
+    days_per_story_point: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -215,20 +218,47 @@ def _parse_fields(fields_raw: dict) -> FieldsConfig:
     )
 
 
+EFFORT_UNITS = frozenset({"hours", "days", "story_points"})
+_EFFORT_ALIASES = {
+    "hour": "hours",
+    "hora": "hours",
+    "horas": "hours",
+    "day": "days",
+    "dia": "days",
+    "dias": "days",
+    "sp": "story_points",
+    "point": "story_points",
+    "points": "story_points",
+    "story_point": "story_points",
+    "storypoints": "story_points",
+}
+
+
+def hours_per_effort_unit(
+    effort_unit: str, *, hours_per_day: float, days_per_story_point: float
+) -> float:
+    """Hours represented by one numeric estimate unit."""
+    if effort_unit == "hours":
+        return 1.0
+    if effort_unit == "days":
+        return hours_per_day
+    return days_per_story_point * hours_per_day
+
+
 def _parse_slicing_pie(
     pie_raw: dict, rates_raw: object, users_raw: object
 ) -> SlicingPieConfig:
     model = load_model_defaults()
+    effort_unit, hours_per_day, days_per_point, hours_per_unit = _parse_effort(pie_raw)
     try:
         time_multiplier = float(
             pie_raw.get("time_multiplier", model.time_multiplier)
         )
         default_rate = float(pie_raw.get("default_hourly_rate", 50.0))
-        hours_per_unit = float(pie_raw.get("hours_per_estimate_unit", 1.0))
     except (TypeError, ValueError) as exc:
         raise ConfigError(t("config.bad_pie_numbers")) from exc
 
-    if time_multiplier <= 0 or default_rate < 0 or hours_per_unit <= 0:
+    if time_multiplier <= 0 or default_rate < 0:
         raise ConfigError(t("config.pie_number_range"))
 
     split = pie_raw.get("split_among_assignees", True)
@@ -241,7 +271,43 @@ def _parse_slicing_pie(
         hours_per_estimate_unit=hours_per_unit,
         split_among_assignees=split,
         users=_parse_users(rates_raw, users_raw),
+        effort_unit=effort_unit,
+        hours_per_day=hours_per_day,
+        days_per_story_point=days_per_point,
     )
+
+
+def _parse_effort(pie_raw: dict) -> tuple[str, float, float, float]:
+    raw_unit = str(pie_raw.get("effort_unit") or "hours").strip().lower()
+    effort_unit = _EFFORT_ALIASES.get(raw_unit, raw_unit)
+    if effort_unit not in EFFORT_UNITS:
+        raise ConfigError(
+            t("config.bad_effort_unit", units=", ".join(sorted(EFFORT_UNITS)))
+        )
+    try:
+        hours_per_day = float(pie_raw.get("hours_per_day", 8.0))
+        days_per_point = float(pie_raw.get("days_per_story_point", 1.0))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(t("config.bad_effort_numbers")) from exc
+    if hours_per_day <= 0 or days_per_point <= 0:
+        raise ConfigError(t("config.effort_number_range"))
+
+    # Legacy override: hours_per_estimate_unit still wins when present.
+    if "hours_per_estimate_unit" in pie_raw:
+        try:
+            hours_per_unit = float(pie_raw.get("hours_per_estimate_unit"))
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(t("config.bad_pie_numbers")) from exc
+        if hours_per_unit <= 0:
+            raise ConfigError(t("config.pie_number_range"))
+        return effort_unit, hours_per_day, days_per_point, hours_per_unit
+
+    hours_per_unit = hours_per_effort_unit(
+        effort_unit,
+        hours_per_day=hours_per_day,
+        days_per_story_point=days_per_point,
+    )
+    return effort_unit, hours_per_day, days_per_point, hours_per_unit
 
 
 def _parse_display(display_raw: dict) -> DisplayConfig:

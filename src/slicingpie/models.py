@@ -83,6 +83,10 @@ class PieReport:
     skipped_zero_hours: tuple[Ticket, ...]
     time_multiplier: float
     default_hourly_rate: float
+    effort_unit: str = "hours"
+    hours_per_day: float = 8.0
+    days_per_story_point: float = 1.0
+    hours_per_estimate_unit: float = 1.0
     expenses: tuple[PersonExpenses, ...] = ()
     total_expenses: float = 0.0
     total_expense_slices: float = 0.0

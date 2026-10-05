@@ -69,6 +69,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         ),
         "display.table.title": "Rebanadas por horas de trabajo",
         "display.table.caption": (
+            "Esfuerzo ({effort_unit}): 1 unidad = {hours_per_unit} h. "
             "Rebanadas = horas x tarifa x seniority x {multiplier}  ->  % pie"
         ),
         "display.expenses.title": "Gastos ({currency}, label {label})",
@@ -150,8 +151,16 @@ _MESSAGES: dict[str, dict[str, str]] = {
             "Los valores numericos de [slicing_pie] son invalidos."
         ),
         "config.pie_number_range": (
-            "time_multiplier y hours_per_estimate_unit deben ser > 0; "
-            "default_hourly_rate debe ser >= 0."
+            "time_multiplier debe ser > 0; default_hourly_rate debe ser >= 0."
+        ),
+        "config.bad_effort_unit": (
+            "slicing_pie.effort_unit debe ser uno de: {units}."
+        ),
+        "config.bad_effort_numbers": (
+            "hours_per_day y days_per_story_point deben ser numeros."
+        ),
+        "config.effort_number_range": (
+            "hours_per_day y days_per_story_point deben ser > 0."
         ),
         "config.bad_split": (
             "slicing_pie.split_among_assignees debe ser true o false."

@@ -23,7 +23,9 @@ def sample_config(**pie_overrides):
         "slicing_pie": {
             "time_multiplier": 2.0,
             "default_hourly_rate": 50.0,
-            "hours_per_estimate_unit": 1.0,
+            "effort_unit": "hours",
+            "hours_per_day": 8.0,
+            "days_per_story_point": 1.0,
             "split_among_assignees": True,
         },
         "rates": {"ana": 75, "carlos": 50, "maria": 65},
