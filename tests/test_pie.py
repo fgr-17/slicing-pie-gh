@@ -12,11 +12,10 @@ def test_parse_numeric_hours():
     assert parse_estimate_hours(2.5, 4.0) == 10.0
 
 
-def test_parse_text_hours_and_points():
-    assert parse_estimate_hours("8h", 4.0) == 8.0
-    assert parse_estimate_hours("8 horas", 1.0) == 8.0
+def test_parse_numeric_string_estimate():
     assert parse_estimate_hours("8", 4.0) == 32.0
     assert parse_estimate_hours("8,5", 1.0) == 8.5
+    assert parse_estimate_hours("8h", 1.0) is None
     assert parse_estimate_hours("no sé", 1.0) is None
     assert parse_estimate_hours(None, 1.0) is None
     assert parse_estimate_hours(-3, 1.0) is None

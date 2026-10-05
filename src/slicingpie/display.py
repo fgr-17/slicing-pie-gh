@@ -154,6 +154,8 @@ def _print_work_table(
         caption=t(
             "display.table.caption",
             multiplier=format_hours(report.time_multiplier),
+            effort_unit=report.effort_unit,
+            hours_per_unit=format_hours(report.hours_per_estimate_unit),
         ),
         caption_style="dim",
         show_lines=False,
@@ -412,6 +414,10 @@ def report_to_json(report: PieReport) -> str:
             "time_multiplier": report.time_multiplier,
             "cash_multiplier": report.cash_multiplier,
             "default_hourly_rate": report.default_hourly_rate,
+            "effort_unit": report.effort_unit,
+            "hours_per_day": report.hours_per_day,
+            "days_per_story_point": report.days_per_story_point,
+            "hours_per_estimate_unit": report.hours_per_estimate_unit,
         },
         "expenses_config": {
             "label": report.expense_label,

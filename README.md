@@ -84,7 +84,7 @@ All settings live in a local TOML. The CLI looks for, in order:
 | `mode` | `demo` or `github` |
 | `[github]` | token, owner, owner type, Project number |
 | `[fields]` | status field name, Done values, estimate field |
-| `[slicing_pie]` | default rate, hours per estimate unit, split; optional `time_multiplier` override |
+| `[slicing_pie]` | effort unit + conversion to hours, default rate, split; optional `time_multiplier` |
 | `[[users]]` | per person: `login`, `name`, `rate`, and `seniority` |
 | `[display]` | currency symbol and `language` (only `es` for now) |
 | `[expenses]` | expense label, currency; optional `cash_multiplier` override |
@@ -92,8 +92,18 @@ All settings live in a local TOML. The CLI looks for, in order:
 Model multipliers: [mike-moyer-model.toml](mike-moyer-model.toml).
 Full example: [slicingpie.toml.example](slicingpie.toml.example).
 
-If the estimate is in story points, set `hours_per_estimate_unit` (for example
-`4`). A value like `8h` is always treated as hours.
+Effort on the Project estimate field is converted to **hours** (required by
+Slicing Pie) using `effort_unit`:
+
+| `effort_unit` | Hours formula |
+| --- | --- |
+| `hours` | estimate x 1 |
+| `days` | estimate x `hours_per_day` |
+| `story_points` | estimate x `days_per_story_point` x `hours_per_day` |
+
+The Project estimate field is a number only; the unit is always
+`effort_unit` from the TOML. Legacy `hours_per_estimate_unit` still works as
+a direct hours factor when set.
 
 Done tickets with the configured expense label are cash (not work hours). The
 report shows an expenses table (amount + slices) and a general summary

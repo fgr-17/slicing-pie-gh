@@ -21,15 +21,20 @@ api_url = "https://api.github.com/graphql"
 status = "Status"
 # Values that count as finished. Keep locale aliases your Project uses.
 done = ["Done", "Listo", "Completado"]
-# Numeric field (or text like "8h") with the estimate. Treated as hours unless
-# hours_per_estimate_unit is not 1.
+# Numeric Project field with the estimate (hours, days, or story points).
+# Conversion to hours is set under [slicing_pie] (effort_unit).
 estimate = "Estimate"
 
 [slicing_pie]
 # Optional: time_multiplier = 2.0  (default from mike-moyer-model.toml)
 default_hourly_rate = 50.0
-# If the estimate is in story points, set hours per point here (e.g. 4).
-hours_per_estimate_unit = 1.0
+# Effort unit on the estimate field -> hours for Slicing Pie.
+# hours | days | story_points
+effort_unit = "hours"
+# days -> hours (issue example uses 2; common full day is 8)
+hours_per_day = 8.0
+# story_points -> days, then days -> hours
+days_per_story_point = 1.0
 # Several assignees: split hours evenly. If false, only the first assignee counts.
 split_among_assignees = true
 
